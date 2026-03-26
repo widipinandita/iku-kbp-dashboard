@@ -70,4 +70,6 @@ export default function PerSeksi({ q }) {
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.8rem',marginBottom:'4px'}}>
                       <span style={{color:'#475569'}}>{kpi.label}</span>
                       <span style={{fontWeight:600,color:c.text}}>{fmt(v)} <span style={{color:'#94a3b8',fontWeight:400}}>/ {kpi.targets[q]}%</span></span>
-                    </
+                    </div>
+  )
+}
