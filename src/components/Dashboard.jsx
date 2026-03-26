@@ -1,0 +1,288 @@
+import { useState, useEffect, useMemo } from 'react'
+import { db } from '../firebase'
+import { doc, getDoc } from 'firebase/firestore'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
+
+const SEKSI = ['KBP I', 'KBP II', 'KBP III', 'KBP IV']
+
+const KPI_DEFS = [
+  { id:'a', label:'a. Keberatan Tepat Waktu', formula:'SK Tepat Waktu / SK Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`a_tw_${q}_${s}`]),t=parseFloat(v[`a_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+  { id:'b', label:'b. Nonkeberatan Tepat Waktu', formula:'SK Tepat Waktu / SK Terbit', targets:{Q1:91,Q2:91,Q3:91,Q4:91}, bySeksi:true,
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`b_tw_${q}_${s}`]),t=parseFloat(v[`b_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+  { id:'c', label:'c. Sengketa Perpajakan Dipertahankan', formula:'65%×(Konstanta/SK Terbit) + 35%×(DKB/47%)', targets:{Q1:78,Q2:78,Q3:78,Q4:78}, bySeksi:true,
+    calc:(v,q,s)=>{ const k=parseFloat(v[`c_konst_${q}_${s}`]),t=parseFloat(v[`c_terbit_${q}_${s}`]),d=parseFloat(v[`c_dkb_${q}_${s}`]); return (t>0&&!isNaN(k)&&!isNaN(d))?0.65*(k/t)*100+0.35*(d/47)*100:null }},
+  { id:'d', label:'d. SUB Tepat Waktu', formula:'SUB Tepat Waktu / SUB Terbit', targets:{Q1:90,Q2:90,Q3:90,Q4:90}, bySeksi:true,
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`d_tw_${q}_${s}`]),t=parseFloat(v[`d_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+  { id:'e', label:'e. STg Tepat Waktu', formula:'TG Tepat Waktu / TG Terbit', targets:{Q1:92,Q2:92,Q3:92,Q4:92}, bySeksi:true,
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`e_tw_${q}_${s}`]),t=parseFloat(v[`e_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+  { id:'f', label:'f. Argumentasi Hukum Tepat Waktu', formula:'Konstanta Pentul Closing / Pentul Closing Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
+    calc:(v,q,s)=>{ const k=parseFloat(v[`f_konst_${q}_${s}`]),t=parseFloat(v[`f_terbit_${q}_${s}`]); return t>0?(k/t)*100:null }},
+  { id:'g', label:'g. Strategi Penanganan Sengketa Pajak', formula:'Konstanta Pentul Closing / Pentul Closing Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
+    calc:(v,q,s)=>{ const k=parseFloat(v[`g_konst_${q}_${s}`]),t=parseFloat(v[`g_terbit_${q}_${s}`]); return t>0?(k/t)*100:null }},
+  { id:'h', label:'h. Kualitas Kompetensi SDM', formula:'Realisasi langsung (%)', targets:{Q1:50,Q2:60,Q3:70,Q4:85}, bySeksi:false,
+    calc:(v,q)=>{ const r=parseFloat(v[`h_real_${q}`]); return isNaN(r)?null:r }},
+  { id:'i', label:'i. Penguatan Budaya & Bintal', formula:'Realisasi langsung (%)', targets:{Q1:100,Q2:100,Q3:100,Q4:100}, bySeksi:false,
+    calc:(v,q)=>{ const r=parseFloat(v[`i_real_${q}`]); return isNaN(r)?null:r }},
+]
+
+const sc = (r,t) => {
+  if(r===null) return {bg:'#f8fafc',text:'#94a3b8',bar:'#e2e8f0',badge:'#f1f5f9',badgeText:'#94a3b8'}
+  if(r>=t) return {bg:'#f0fdf4',text:'#15803d',bar:'#22c55e',badge:'#dcfce7',badgeText:'#15803d'}
+  if(r>=t*0.9) return {bg:'#fffbeb',text:'#b45309',bar:'#f59e0b',badge:'#fef3c7',badgeText:'#b45309'}
+  return {bg:'#fef2f2',text:'#b91c1c',bar:'#ef4444',badge:'#fee2e2',badgeText:'#b91c1c'}
+}
+const fmt = v => v===null?'—':v.toFixed(1)+'%'
+
+const QUARTERS = ['Q1','Q2','Q3','Q4']
+
+export default function Dashboard({ q, admin }) {
+  const [vals, setVals] = useState({})
+  const [files, setFiles] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(null)
+  const [modal, setModal] = useState(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const snap = await getDoc(doc(db, 'kpi_data', `${q}_2025`))
+        if (snap.exists()) setVals(snap.data().vals || {})
+        else setVals({})
+      } catch { setVals({}) }
+      setLoading(false)
+    }
+    fetchData()
+  }, [q])
+
+  useEffect(() => {
+    const fetchFiles = async () => {
+      const result = {}
+      for (const kpi of KPI_DEFS.filter(k=>k.bySeksi)) {
+        const key = `${kpi.id}_${q}_2025`
+        try {
+          const snap = await getDoc(doc(db, 'excel_files', key))
+          if (snap.exists()) result[key] = snap.data()
+        } catch {}
+      }
+      setFiles(result)
+    }
+    fetchFiles()
+  }, [q])
+
+  const realisasi = useMemo(() => {
+    const res = {}
+    KPI_DEFS.forEach(kpi => {
+      res[kpi.id] = {}
+      QUARTERS.forEach(qr => {
+        if (kpi.bySeksi) {
+          res[kpi.id][qr] = {}
+          SEKSI.forEach(s => { res[kpi.id][qr][s] = kpi.calc(vals, qr, s) })
+          const valids = SEKSI.map(s => res[kpi.id][qr][s]).filter(v => v!==null)
+          res[kpi.id][qr]['_avg'] = valids.length>0 ? valids.reduce((a,b)=>a+b,0)/valids.length : null
+        } else {
+          res[kpi.id][qr] = kpi.calc(vals, qr)
+        }
+      })
+    })
+    return res
+  }, [vals])
+
+  const summary = useMemo(() => {
+    let met=0,near=0,below=0,nodata=0
+    KPI_DEFS.forEach(kpi => {
+      const target=kpi.targets[q]
+      const real=kpi.bySeksi?realisasi[kpi.id][q]['_avg']:realisasi[kpi.id][q]
+      if(real===null){nodata++;return}
+      if(real>=target) met++
+      else if(real>=target*0.9) near++
+      else below++
+    })
+    return {met,near,below,nodata}
+  }, [realisasi, q])
+
+  const downloadFile = (key) => {
+    const f = files[key]
+    if (!f) return
+    const binary = atob(f.base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i)
+    const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download=f.name; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  if (loading) return <div style={{color:'#94a3b8',padding:'2rem',textAlign:'center'}}>Memuat data...</div>
+
+  const s = {
+    summCard: (color,bg) => ({background:bg,borderRadius:'0.75rem',padding:'1rem',flex:1}),
+    kpiCard: (bg) => ({background:bg,borderRadius:'0.75rem',border:'1px solid #e2e8f0',overflow:'hidden',marginBottom:'0.75rem'}),
+    seksiMini: (bg) => ({borderRadius:'0.5rem',padding:'0.75rem',background:bg,border:'1px solid #f1f5f9',flex:1,minWidth:'120px'}),
+    btnDetail: (hasFile) => ({fontSize:'0.75rem',padding:'4px 12px',borderRadius:'6px',border:hasFile?'none':'1px solid #e2e8f0',background:hasFile?'#1e3a8a':'white',color:hasFile?'white':'#64748b',cursor:'pointer',fontWeight:500}),
+  }
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{display:'flex',gap:'0.75rem',marginBottom:'1.5rem',flexWrap:'wrap'}}>
+        {[
+          {label:'Tercapai',count:summary.met,bg:'#dcfce7',color:'#15803d',icon:'✅'},
+          {label:'Mendekati',count:summary.near,bg:'#fef3c7',color:'#b45309',icon:'⚠️'},
+          {label:'Di Bawah',count:summary.below,bg:'#fee2e2',color:'#b91c1c',icon:'❌'},
+          {label:'Belum Ada Data',count:summary.nodata,bg:'#f1f5f9',color:'#64748b',icon:'⬜'},
+        ].map(c => (
+          <div key={c.label} style={{background:c.bg,borderRadius:'0.75rem',padding:'1rem',flex:'1',minWidth:'120px'}}>
+            <div style={{fontSize:'1.5rem',fontWeight:700,color:c.color}}>{c.icon} {c.count}</div>
+            <div style={{fontSize:'0.75rem',marginTop:'2px',fontWeight:500,color:c.color}}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {modal && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'}}
+          onClick={()=>setModal(null)}>
+          <div style={{background:'white',borderRadius:'1rem',width:'100%',maxWidth:'720px',maxHeight:'90vh',overflow:'auto'}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'1rem 1.5rem',borderBottom:'1px solid #f1f5f9'}}>
+              <h2 style={{fontWeight:600,fontSize:'0.95rem',margin:0}}>
+                Detail {KPI_DEFS.find(k=>k.id===modal.kpiId)?.label} — {q} 2025
+              </h2>
+              <button onClick={()=>setModal(null)} style={{background:'none',border:'none',fontSize:'1.25rem',cursor:'pointer',color:'#94a3b8'}}>✕</button>
+            </div>
+            <div style={{padding:'1.5rem'}}>
+              {files[`${modal.kpiId}_${q}_2025`] ? (
+                <>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
+                    <span style={{fontSize:'0.875rem',color:'#64748b'}}>📄 <strong>{files[`${modal.kpiId}_${q}_2025`].name}</strong></span>
+                    <button onClick={()=>downloadFile(`${modal.kpiId}_${q}_2025`)}
+                      style={{background:'#1e3a8a',color:'white',border:'none',padding:'6px 14px',borderRadius:'6px',fontSize:'0.8rem',cursor:'pointer',fontWeight:500}}>
+                      ⬇ Download Excel
+                    </button>
+                  </div>
+                  <div style={{overflowX:'auto',borderRadius:'0.5rem',border:'1px solid #e2e8f0'}}>
+                    <table style={{width:'100%',borderCollapse:'collapse'}}>
+                      <thead>
+                        <tr>{Object.keys(files[`${modal.kpiId}_${q}_2025`].data?.[0]||{}).map(col=>(
+                          <th key={col} style={{padding:'8px 12px',fontSize:'0.75rem',fontWeight:600,color:'white',background:'#1e3a8a',whiteSpace:'nowrap',textAlign:'left'}}>{col}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody>
+                        {(files[`${modal.kpiId}_${q}_2025`].data||[]).slice(0,50).map((row,i)=>(
+                          <tr key={i} style={{background:i%2===0?'white':'#f8fafc'}}>
+                            {Object.values(row).map((cell,j)=>(
+                              <td key={j} style={{padding:'8px 12px',fontSize:'0.8rem',color:'#475569',whiteSpace:'nowrap'}}>{String(cell)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                        {(files[`${modal.kpiId}_${q}_2025`].data||[]).length>50 && (
+                          <tr><td colSpan={99} style={{padding:'8px 12px',textAlign:'center',color:'#94a3b8',fontSize:'0.75rem'}}>
+                            … dan {files[`${modal.kpiId}_${q}_2025`].data.length-50} baris lainnya. Download untuk melihat semua data.
+                          </td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div style={{textAlign:'center',padding:'2rem'}}>
+                  <div style={{fontSize:'2.5rem',marginBottom:'0.75rem'}}>📂</div>
+                  <div style={{fontWeight:500,color:'#1e293b',marginBottom:'0.5rem'}}>Belum ada file untuk {q} 2025</div>
+                  <div style={{fontSize:'0.875rem',color:'#94a3b8'}}>Admin dapat mengupload file di tab Kelola File.</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Cards */}
+      {KPI_DEFS.map(kpi => {
+        const target = kpi.targets[q]
+        const real = kpi.bySeksi ? realisasi[kpi.id][q]['_avg'] : realisasi[kpi.id][q]
+        const c = sc(real, target)
+        const isExp = expanded === kpi.id
+        const hasFile = !!files[`${kpi.id}_${q}_2025`]
+
+        return (
+          <div key={kpi.id} style={s.kpiCard(c.bg)}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'1rem 1.25rem',gap:'0.75rem'}}>
+              <button style={{flex:1,textAlign:'left',background:'none',border:'none',cursor:'pointer',padding:0}}
+                onClick={()=>setExpanded(isExp?null:kpi.id)}>
+                <div style={{fontWeight:600,color:'#1e293b',fontSize:'0.9rem'}}>{kpi.label}</div>
+                <div style={{fontSize:'0.75rem',color:'#94a3b8',marginTop:'2px'}}>{kpi.formula}</div>
+              </button>
+              <div style={{display:'flex',alignItems:'center',gap:'0.5rem',flexShrink:0}}>
+                <span style={{fontSize:'0.75rem',fontWeight:600,padding:'3px 10px',borderRadius:'99px',background:c.badge,color:c.badgeText}}>
+                  {real!==null?`${fmt(real)} / ${target}%`:`Target: ${target}%`}
+                </span>
+                {kpi.bySeksi && (
+                  <button style={s.btnDetail(hasFile)} onClick={()=>setModal({kpiId:kpi.id})}>
+                    📋 Detail
+                  </button>
+                )}
+                <button onClick={()=>setExpanded(isExp?null:kpi.id)}
+                  style={{background:'none',border:'none',cursor:'pointer',color:'#94a3b8',fontSize:'0.875rem',padding:'0 4px'}}>
+                  {isExp?'▲':'▼'}
+                </button>
+              </div>
+            </div>
+
+            {isExp && (
+              <div style={{padding:'0 1.25rem 1.25rem',borderTop:'1px solid #f1f5f9',background:'white'}}>
+                {kpi.bySeksi ? (
+                  <>
+                    <div style={{display:'flex',gap:'0.75rem',marginTop:'1rem',marginBottom:'1rem',flexWrap:'wrap'}}>
+                      {SEKSI.map(se => {
+                        const sv = realisasi[kpi.id][q][se]
+                        const ss = sc(sv, target)
+                        return (
+                          <div key={se} style={s.seksiMini(ss.bg)}>
+                            <div style={{fontSize:'0.7rem',fontWeight:600,color:'#64748b'}}>Seksi {se}</div>
+                            <div style={{fontSize:'1.25rem',fontWeight:700,color:ss.text,marginTop:'2px'}}>{fmt(sv)}</div>
+                            <div style={{fontSize:'0.7rem',color:'#94a3b8'}}>Target: {target}%</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div style={{height:'200px'}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={SEKSI.map(se=>({name:se,Realisasi:realisasi[kpi.id][q][se]!==null?+realisasi[kpi.id][q][se].toFixed(2):null,Target:target}))}
+                          margin={{top:5,right:10,left:-10,bottom:5}}>
+                          <CartesianGrid strokeDasharray="3 3"/>
+                          <XAxis dataKey="name" tick={{fontSize:12}}/>
+                          <YAxis domain={[0,100]} tick={{fontSize:11}}/>
+                          <Tooltip formatter={v=>v!==null?v+'%':'—'}/>
+                          <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 4"
+                            label={{value:`Target ${target}%`,position:'insideTopRight',fontSize:11,fill:'#b45309'}}/>
+                          <Bar dataKey="Realisasi" fill="#1e3a8a" radius={[4,4,0,0]}/>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{height:'180px',marginTop:'1rem'}}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={['Q1','Q2','Q3','Q4'].map(qr=>({name:qr,Realisasi:kpi.bySeksi?realisasi[kpi.id][qr]['_avg']:realisasi[kpi.id][qr],Target:kpi.targets[qr]}))}
+                        margin={{top:5,right:10,left:-10,bottom:5}}>
+                        <CartesianGrid strokeDasharray="3 3"/>
+                        <XAxis dataKey="name" tick={{fontSize:12}}/>
+                        <YAxis domain={[0,110]} tick={{fontSize:11}}/>
+                        <Tooltip formatter={v=>v!==null?v+'%':'—'}/>
+                        <Bar dataKey="Realisasi" fill="#1e3a8a" radius={[4,4,0,0]}/>
+                        <Bar dataKey="Target" fill="#f59e0b" radius={[4,4,0,0]} opacity={0.6}/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
