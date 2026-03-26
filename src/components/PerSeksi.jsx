@@ -27,6 +27,7 @@ const sc = (r,t) => {
   if(r>=t*0.9) return {bar:'#f59e0b',text:'#b45309'}
   return {bar:'#ef4444',text:'#b91c1c'}
 }
+
 const fmt = v => v===null?'—':v.toFixed(1)+'%'
 
 export default function PerSeksi({ q }) {
@@ -34,42 +35,66 @@ export default function PerSeksi({ q }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       setLoading(true)
       try {
         const snap = await getDoc(doc(db, 'kpi_data', `${q}_2025`))
         if (snap.exists()) setVals(snap.data().vals || {})
         else setVals({})
-      } catch { setVals({}) }
+      } catch {
+        setVals({})
+      }
       setLoading(false)
     }
-    fetch()
+    fetchData()
   }, [q])
 
-  if (loading) return <div style={{color:'#94a3b8',padding:'2rem',textAlign:'center'}}>Memuat data...</div>
+  if (loading) {
+    return (
+      <div style={{color:'#94a3b8',padding:'2rem',textAlign:'center'}}>
+        Memuat data...
+      </div>
+    )
+  }
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:'1.5rem'}}>
       {SEKSI.map(s => {
-        const metCount = KPI_DEFS.filter(k => { const v=k.calc(vals,q,s); return v!==null&&v>=k.targets[q] }).length
-        const total = KPI_DEFS.filter(k => k.calc(vals,q,s)!==null).length
+        const metCount = KPI_DEFS.filter(k => {
+          const v = k.calc(vals, q, s)
+          return v !== null && v >= k.targets[q]
+        }).length
+        const total = KPI_DEFS.filter(k => k.calc(vals, q, s) !== null).length
         return (
           <div key={s} style={{background:'white',borderRadius:'0.75rem',border:'1px solid #e2e8f0',padding:'1.25rem'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem'}}>
               <h2 style={{fontWeight:700,color:'#1e293b',fontSize:'1rem',margin:0}}>Seksi {s}</h2>
               <span style={{fontSize:'0.75rem',background:'#dbeafe',color:'#1e40af',fontWeight:600,padding:'2px 10px',borderRadius:'99px'}}>
-                {total>0?`${metCount}/${total} IKU Tercapai`:'Belum ada data'}
+                {total > 0 ? `${metCount}/${total} IKU Tercapai` : 'Belum ada data'}
               </span>
             </div>
             <div style={{display:'flex',flexDirection:'column',gap:'0.75rem'}}>
               {KPI_DEFS.map(kpi => {
-                const v = kpi.calc(vals,q,s)
-                const c = sc(v,kpi.targets[q])
+                const v = kpi.calc(vals, q, s)
+                const c = sc(v, kpi.targets[q])
                 return (
                   <div key={kpi.id}>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.8rem',marginBottom:'4px'}}>
                       <span style={{color:'#475569'}}>{kpi.label}</span>
-                      <span style={{fontWeight:600,color:c.text}}>{fmt(v)} <span style={{color:'#94a3b8',fontWeight:400}}>/ {kpi.targets[q]}%</span></span>
+                      <span style={{fontWeight:600,color:c.text}}>
+                        {fmt(v)} <span style={{color:'#94a3b8',fontWeight:400}}>/ {kpi.targets[q]}%</span>
+                      </span>
                     </div>
+                    <div style={{width:'100%',background:'#f1f5f9',borderRadius:'99px',height:'6px'}}>
+                      <div style={{height:'6px',borderRadius:'99px',width:`${v!==null?Math.min(v,100):0}%`,background:c.bar,transition:'width .4s'}}/>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
