@@ -4,6 +4,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 
 const SEKSI = ['KBP I', 'KBP II', 'KBP III', 'KBP IV']
+const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
 
 const KPI_DEFS = [
   { id:'a', label:'a. Keberatan Tepat Waktu', formula:'SK Tepat Waktu / SK Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
@@ -34,14 +35,11 @@ const sc = (r,t) => {
 }
 const fmt = v => v===null?'—':v.toFixed(1)+'%'
 
-const QUARTERS = ['Q1','Q2','Q3','Q4']
-
 export default function Dashboard({ q, admin }) {
   const [vals, setVals] = useState({})
-  const [files, setFiles] = useState({})
+  const [links, setLinks] = useState({})
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState(null)
-  const [modal, setModal] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,18 +55,18 @@ export default function Dashboard({ q, admin }) {
   }, [q])
 
   useEffect(() => {
-    const fetchFiles = async () => {
+    const fetchLinks = async () => {
       const result = {}
-      for (const kpi of KPI_DEFS.filter(k=>k.bySeksi)) {
+      for (const kpi of KPI_DEFS.filter(k => k.bySeksi)) {
         const key = `${kpi.id}_${q}_2025`
         try {
           const snap = await getDoc(doc(db, 'excel_files', key))
-          if (snap.exists()) result[key] = snap.data()
+          if (snap.exists()) result[key] = snap.data().url || ''
         } catch {}
       }
-      setFiles(result)
+      setLinks(result)
     }
-    fetchFiles()
+    fetchLinks()
   }, [q])
 
   const realisasi = useMemo(() => {
@@ -102,31 +100,24 @@ export default function Dashboard({ q, admin }) {
     return {met,near,below,nodata}
   }, [realisasi, q])
 
-  const downloadFile = (key) => {
-    const f = files[key]
-    if (!f) return
-    const binary = atob(f.base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i)
-    const blob = new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href=url; a.download=f.name; a.click()
-    URL.revokeObjectURL(url)
-  }
-
   if (loading) return <div style={{color:'#94a3b8',padding:'2rem',textAlign:'center'}}>Memuat data...</div>
 
   const s = {
-    summCard: (color,bg) => ({background:bg,borderRadius:'0.75rem',padding:'1rem',flex:1}),
     kpiCard: (bg) => ({background:bg,borderRadius:'0.75rem',border:'1px solid #e2e8f0',overflow:'hidden',marginBottom:'0.75rem'}),
     seksiMini: (bg) => ({borderRadius:'0.5rem',padding:'0.75rem',background:bg,border:'1px solid #f1f5f9',flex:1,minWidth:'120px'}),
-    btnDetail: (hasFile) => ({fontSize:'0.75rem',padding:'4px 12px',borderRadius:'6px',border:hasFile?'none':'1px solid #e2e8f0',background:hasFile?'#1e3a8a':'white',color:hasFile?'white':'#64748b',cursor:'pointer',fontWeight:500}),
+    btnDetail: (hasLink) => ({
+      fontSize:'0.75rem',padding:'4px 12px',borderRadius:'6px',
+      border: hasLink?'none':'1px solid #e2e8f0',
+      background: hasLink?'#1e3a8a':'white',
+      color: hasLink?'white':'#94a3b8',
+      cursor: hasLink?'pointer':'default',
+      fontWeight:500,
+    }),
   }
 
   return (
     <div>
-      {/* Summary */}
+      {/* Summary cards */}
       <div style={{display:'flex',gap:'0.75rem',marginBottom:'1.5rem',flexWrap:'wrap'}}>
         {[
           {label:'Tercapai',count:summary.met,bg:'#dcfce7',color:'#15803d',icon:'✅'},
@@ -141,71 +132,14 @@ export default function Dashboard({ q, admin }) {
         ))}
       </div>
 
-      {/* Modal */}
-      {modal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'}}
-          onClick={()=>setModal(null)}>
-          <div style={{background:'white',borderRadius:'1rem',width:'100%',maxWidth:'720px',maxHeight:'90vh',overflow:'auto'}}
-            onClick={e=>e.stopPropagation()}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'1rem 1.5rem',borderBottom:'1px solid #f1f5f9'}}>
-              <h2 style={{fontWeight:600,fontSize:'0.95rem',margin:0}}>
-                Detail {KPI_DEFS.find(k=>k.id===modal.kpiId)?.label} — {q} 2025
-              </h2>
-              <button onClick={()=>setModal(null)} style={{background:'none',border:'none',fontSize:'1.25rem',cursor:'pointer',color:'#94a3b8'}}>✕</button>
-            </div>
-            <div style={{padding:'1.5rem'}}>
-              {files[`${modal.kpiId}_${q}_2025`] ? (
-                <>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}}>
-                    <span style={{fontSize:'0.875rem',color:'#64748b'}}>📄 <strong>{files[`${modal.kpiId}_${q}_2025`].name}</strong></span>
-                    <button onClick={()=>downloadFile(`${modal.kpiId}_${q}_2025`)}
-                      style={{background:'#1e3a8a',color:'white',border:'none',padding:'6px 14px',borderRadius:'6px',fontSize:'0.8rem',cursor:'pointer',fontWeight:500}}>
-                      ⬇ Download Excel
-                    </button>
-                  </div>
-                  <div style={{overflowX:'auto',borderRadius:'0.5rem',border:'1px solid #e2e8f0'}}>
-                    <table style={{width:'100%',borderCollapse:'collapse'}}>
-                      <thead>
-                        <tr>{Object.keys(files[`${modal.kpiId}_${q}_2025`].data?.[0]||{}).map(col=>(
-                          <th key={col} style={{padding:'8px 12px',fontSize:'0.75rem',fontWeight:600,color:'white',background:'#1e3a8a',whiteSpace:'nowrap',textAlign:'left'}}>{col}</th>
-                        ))}</tr>
-                      </thead>
-                      <tbody>
-                        {(files[`${modal.kpiId}_${q}_2025`].data||[]).slice(0,50).map((row,i)=>(
-                          <tr key={i} style={{background:i%2===0?'white':'#f8fafc'}}>
-                            {Object.values(row).map((cell,j)=>(
-                              <td key={j} style={{padding:'8px 12px',fontSize:'0.8rem',color:'#475569',whiteSpace:'nowrap'}}>{String(cell)}</td>
-                            ))}
-                          </tr>
-                        ))}
-                        {(files[`${modal.kpiId}_${q}_2025`].data||[]).length>50 && (
-                          <tr><td colSpan={99} style={{padding:'8px 12px',textAlign:'center',color:'#94a3b8',fontSize:'0.75rem'}}>
-                            … dan {files[`${modal.kpiId}_${q}_2025`].data.length-50} baris lainnya. Download untuk melihat semua data.
-                          </td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div style={{textAlign:'center',padding:'2rem'}}>
-                  <div style={{fontSize:'2.5rem',marginBottom:'0.75rem'}}>📂</div>
-                  <div style={{fontWeight:500,color:'#1e293b',marginBottom:'0.5rem'}}>Belum ada file untuk {q} 2025</div>
-                  <div style={{fontSize:'0.875rem',color:'#94a3b8'}}>Admin dapat mengupload file di tab Kelola File.</div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* KPI Cards */}
       {KPI_DEFS.map(kpi => {
         const target = kpi.targets[q]
         const real = kpi.bySeksi ? realisasi[kpi.id][q]['_avg'] : realisasi[kpi.id][q]
         const c = sc(real, target)
         const isExp = expanded === kpi.id
-        const hasFile = !!files[`${kpi.id}_${q}_2025`]
+        const link = links[`${kpi.id}_${q}_2025`]
+        const hasLink = !!link
 
         return (
           <div key={kpi.id} style={s.kpiCard(c.bg)}>
@@ -220,8 +154,12 @@ export default function Dashboard({ q, admin }) {
                   {real!==null?`${fmt(real)} / ${target}%`:`Target: ${target}%`}
                 </span>
                 {kpi.bySeksi && (
-                  <button style={s.btnDetail(hasFile)} onClick={()=>setModal({kpiId:kpi.id})}>
-                    📋 Detail
+                  <button
+                    style={s.btnDetail(hasLink)}
+                    onClick={() => hasLink && window.open(link, '_blank')}
+                    title={hasLink ? 'Buka di SharePoint' : 'Link belum diset oleh admin'}
+                  >
+                    🔗 Detail
                   </button>
                 )}
                 <button onClick={()=>setExpanded(isExp?null:kpi.id)}
@@ -250,7 +188,12 @@ export default function Dashboard({ q, admin }) {
                     </div>
                     <div style={{height:'200px'}}>
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={SEKSI.map(se=>({name:se,Realisasi:realisasi[kpi.id][q][se]!==null?+realisasi[kpi.id][q][se].toFixed(2):null,Target:target}))}
+                        <BarChart
+                          data={SEKSI.map(se=>({
+                            name:se,
+                            Realisasi:realisasi[kpi.id][q][se]!==null?+realisasi[kpi.id][q][se].toFixed(2):null,
+                            Target:target
+                          }))}
                           margin={{top:5,right:10,left:-10,bottom:5}}>
                           <CartesianGrid strokeDasharray="3 3"/>
                           <XAxis dataKey="name" tick={{fontSize:12}}/>
@@ -266,7 +209,12 @@ export default function Dashboard({ q, admin }) {
                 ) : (
                   <div style={{height:'180px',marginTop:'1rem'}}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={['Q1','Q2','Q3','Q4'].map(qr=>({name:qr,Realisasi:kpi.bySeksi?realisasi[kpi.id][qr]['_avg']:realisasi[kpi.id][qr],Target:kpi.targets[qr]}))}
+                      <BarChart
+                        data={QUARTERS.map(qr=>({
+                          name:qr,
+                          Realisasi:realisasi[kpi.id][qr]!==null?+realisasi[kpi.id][qr].toFixed(2):null,
+                          Target:kpi.targets[qr]
+                        }))}
                         margin={{top:5,right:10,left:-10,bottom:5}}>
                         <CartesianGrid strokeDasharray="3 3"/>
                         <XAxis dataKey="name" tick={{fontSize:12}}/>
