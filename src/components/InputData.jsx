@@ -52,7 +52,7 @@ export default function InputData({ q, admin }) {
     const fetch = async () => {
       setLoading(true)
       try {
-        const snap = await getDoc(doc(db, 'kpi_data', `${q}_2025`))
+        const snap = await getDoc(doc(db, 'kpi_data', `${q}_2026`))
         if (snap.exists()) setVals(snap.data().vals || {})
         else setVals({})
       } catch { setVals({}) }
@@ -67,7 +67,7 @@ export default function InputData({ q, admin }) {
     setSaving(true)
     setMsg('')
     try {
-      await setDoc(doc(db, 'kpi_data', `${q}_2025`), {
+      await setDoc(doc(db, 'kpi_data', `${q}_2026`), {
         vals,
         updatedAt: serverTimestamp(),
         updatedBy: admin.username,
