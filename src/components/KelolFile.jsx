@@ -25,7 +25,7 @@ export default function KelolFile({ q, admin }) {
       const result = {}
       for (const kpi of KPI_LIST) {
         for (const qr of QUARTERS) {
-          const key = `${kpi.id}_${qr}_2025`
+          const key = `${kpi.id}_${qr}_2026`
           try {
             const snap = await getDoc(doc(db, 'excel_files', key))
             if (snap.exists()) result[key] = snap.data().url || ''
@@ -41,7 +41,7 @@ export default function KelolFile({ q, admin }) {
   const setLink = (key, val) => setLinks(p => ({ ...p, [key]: val }))
 
   const saveLink = async (kpiId, quarter) => {
-    const key = `${kpiId}_${quarter}_2025`
+    const key = `${kpiId}_${quarter}_2026`
     setSaving(key)
     try {
       await setDoc(doc(db, 'excel_files', key), {
