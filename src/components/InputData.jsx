@@ -98,7 +98,7 @@ export default function InputData({ q, admin }) {
   return (
     <div>
       <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:'0.75rem',padding:'0.75rem 1rem',marginBottom:'1.5rem',fontSize:'0.875rem',color:'#1e40af'}}>
-        Masukkan data realisasi untuk <strong>{q} 2025</strong>. Klik <strong>Simpan</strong> setelah selesai.
+        Masukkan data realisasi untuk <strong>{q} 2026</strong>. Klik <strong>Simpan</strong> setelah selesai.
       </div>
 
       {KPI_DEFS.map(kpi => (
