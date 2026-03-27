@@ -92,7 +92,7 @@ export default function App() {
                 background: q===qr ? '#1e3a8a' : '#f1f5f9',
                 color: q===qr ? 'white' : '#475569',
               }}>
-              {qr} 2025
+              {qr} 2026
             </button>
           ))}
         </div>
