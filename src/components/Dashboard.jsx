@@ -45,7 +45,7 @@ export default function Dashboard({ q, admin }) {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const snap = await getDoc(doc(db, 'kpi_data', `${q}_2025`))
+        const snap = await getDoc(doc(db, 'kpi_data', `${q}_2026`))
         if (snap.exists()) setVals(snap.data().vals || {})
         else setVals({})
       } catch { setVals({}) }
@@ -58,7 +58,7 @@ export default function Dashboard({ q, admin }) {
     const fetchLinks = async () => {
       const result = {}
       for (const kpi of KPI_DEFS.filter(k => k.bySeksi)) {
-        const key = `${kpi.id}_${q}_2025`
+        const key = `${kpi.id}_${q}_2026`
         try {
           const snap = await getDoc(doc(db, 'excel_files', key))
           if (snap.exists()) result[key] = snap.data().url || ''
