@@ -18,7 +18,7 @@ const KPI_DEFS = [
   { id:'f', label:'f. Argumentasi Hukum Tepat Waktu', targets:{Q1:85,Q2:85,Q3:85,Q4:85},
     calc:(v,q,s)=>{ const k=parseFloat(v[`f_konst_${q}_${s}`]),t=parseFloat(v[`f_terbit_${q}_${s}`]); return t>0?(k/t)*100:null }},
   { id:'g', label:'g. Strategi Penanganan Sengketa Pajak', targets:{Q1:85,Q2:85,Q3:85,Q4:85},
-    calc:(v,q,s)=>{ const k=parseFloat(v[`g_konst_${q}_${s}`]),t=parseFloat(v[`g_terbit_${q}_${s}`]); return t>0?(k/t)*100:null }},
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`g_tw_${q}_${s}`]),t=parseFloat(v[`g_selesai_${q}_${s}`]); return t>0?(tw/t)*100:null }},
 ]
 
 const sc = (r,t) => {
