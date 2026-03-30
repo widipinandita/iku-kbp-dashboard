@@ -8,19 +8,26 @@ const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4']
 
 const KPI_DEFS = [
   { id:'a', label:'a. Keberatan Tepat Waktu', formula:'SK Tepat Waktu / SK Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
-    calc:(v,q,s)=>{ const tw=parseFloat(v[`a_tw_${q}_${s}`]),t=parseFloat(v[`a_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`a_tw_${q}_${s}`]),t=parseFloat(v[`a_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null },
+    calcBidang:(v,q)=>{ const tw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`a_tw_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`a_terbit_${q}_${s}`])||0),0); return t>0?(tw/t)*100:null }},
   { id:'b', label:'b. Nonkeberatan Tepat Waktu', formula:'SK Tepat Waktu / SK Terbit', targets:{Q1:91,Q2:91,Q3:91,Q4:91}, bySeksi:true,
-    calc:(v,q,s)=>{ const tw=parseFloat(v[`b_tw_${q}_${s}`]),t=parseFloat(v[`b_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`b_tw_${q}_${s}`]),t=parseFloat(v[`b_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null },
+    calcBidang:(v,q)=>{ const tw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`b_tw_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`b_terbit_${q}_${s}`])||0),0); return t>0?(tw/t)*100:null }},
   { id:'c', label:'c. Sengketa Perpajakan Dipertahankan', formula:'65%×(Konstanta/SK Terbit) + 35%×(DKB/47%)', targets:{Q1:78,Q2:78,Q3:78,Q4:78}, bySeksi:true,
-    calc:(v,q,s)=>{ const k=parseFloat(v[`c_konst_${q}_${s}`]),t=parseFloat(v[`c_terbit_${q}_${s}`]),d=parseFloat(v[`c_dkb_${q}_${s}`]); return (t>0&&!isNaN(k)&&!isNaN(d))?0.65*(k/t)*100+0.35*(d/47)*100:null }},
+    calc:(v,q,s)=>{ const k=parseFloat(v[`c_konst_${q}_${s}`]),t=parseFloat(v[`c_terbit_${q}_${s}`]),d=parseFloat(v[`c_dkb_${q}_${s}`]); return (t>0&&!isNaN(k)&&!isNaN(d))?0.65*(k/t)*100+0.35*(d/47)*100:null },
+    calcBidang:(v,q)=>{ const k=SEKSI.reduce((a,s)=>a+(parseFloat(v[`c_konst_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`c_terbit_${q}_${s}`])||0),0),d=SEKSI.reduce((a,s)=>a+(parseFloat(v[`c_dkb_${q}_${s}`])||0),0)/SEKSI.length; return t>0?0.65*(k/t)*100+0.35*(d/47)*100:null }},
   { id:'d', label:'d. SUB Tepat Waktu', formula:'SUB Tepat Waktu / SUB Terbit', targets:{Q1:90,Q2:90,Q3:90,Q4:90}, bySeksi:true,
-    calc:(v,q,s)=>{ const tw=parseFloat(v[`d_tw_${q}_${s}`]),t=parseFloat(v[`d_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`d_tw_${q}_${s}`]),t=parseFloat(v[`d_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null },
+    calcBidang:(v,q)=>{ const tw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`d_tw_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`d_terbit_${q}_${s}`])||0),0); return t>0?(tw/t)*100:null }},
   { id:'e', label:'e. STg Tepat Waktu', formula:'TG Tepat Waktu / TG Terbit', targets:{Q1:92,Q2:92,Q3:92,Q4:92}, bySeksi:true,
-    calc:(v,q,s)=>{ const tw=parseFloat(v[`e_tw_${q}_${s}`]),t=parseFloat(v[`e_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null }},
+    calc:(v,q,s)=>{ const tw=parseFloat(v[`e_tw_${q}_${s}`]),t=parseFloat(v[`e_terbit_${q}_${s}`]); return t>0?(tw/t)*100:null },
+    calcBidang:(v,q)=>{ const tw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`e_tw_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`e_terbit_${q}_${s}`])||0),0); return t>0?(tw/t)*100:null }},
   { id:'f', label:'f. Argumentasi Hukum Tepat Waktu', formula:'Konstanta Pentul Closing / Pentul Closing Terbit', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
-    calc:(v,q,s)=>{ const k=parseFloat(v[`f_konst_${q}_${s}`]),t=parseFloat(v[`f_terbit_${q}_${s}`]); return t>0?(k/t)*100:null }},
+    calc:(v,q,s)=>{ const k=parseFloat(v[`f_konst_${q}_${s}`]),t=parseFloat(v[`f_terbit_${q}_${s}`]); return t>0?(k/t)*100:null },
+    calcBidang:(v,q)=>{ const k=SEKSI.reduce((a,s)=>a+(parseFloat(v[`f_konst_${q}_${s}`])||0),0),t=SEKSI.reduce((a,s)=>a+(parseFloat(v[`f_terbit_${q}_${s}`])||0),0); return t>0?(k/t)*100:null }},
   { id:'g', label:'g. Strategi Penanganan Sengketa Pajak', formula:'60%×(SPS Tepat Waktu/SPS Diselesaikan) + 40%×(Resume Tepat Waktu/Resume Diselesaikan)', targets:{Q1:85,Q2:85,Q3:85,Q4:85}, bySeksi:true,
-    calc:(v,q,s)=>{ const stw=parseFloat(v[`g_stw_${q}_${s}`]),sd=parseFloat(v[`g_sd_${q}_${s}`]),rtw=parseFloat(v[`g_rtw_${q}_${s}`]),rd=parseFloat(v[`g_rd_${q}_${s}`]); return (sd>0&&rd>0)?0.6*(stw/sd)*100+0.4*(rtw/rd)*100:null }},
+    calc:(v,q,s)=>{ const stw=parseFloat(v[`g_stw_${q}_${s}`]),sd=parseFloat(v[`g_sd_${q}_${s}`]),rtw=parseFloat(v[`g_rtw_${q}_${s}`]),rd=parseFloat(v[`g_rd_${q}_${s}`]); return (sd>0&&rd>0)?0.6*(stw/sd)*100+0.4*(rtw/rd)*100:null },
+    calcBidang:(v,q)=>{ const stw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`g_stw_${q}_${s}`])||0),0),sd=SEKSI.reduce((a,s)=>a+(parseFloat(v[`g_sd_${q}_${s}`])||0),0),rtw=SEKSI.reduce((a,s)=>a+(parseFloat(v[`g_rtw_${q}_${s}`])||0),0),rd=SEKSI.reduce((a,s)=>a+(parseFloat(v[`g_rd_${q}_${s}`])||0),0); return (sd>0&&rd>0)?0.6*(stw/sd)*100+0.4*(rtw/rd)*100:null }},
   { id:'h', label:'h. Kualitas Kompetensi SDM', formula:'Realisasi langsung (%)', targets:{Q1:50,Q2:60,Q3:70,Q4:85}, bySeksi:false,
     calc:(v,q)=>{ const r=parseFloat(v[`h_real_${q}`]); return isNaN(r)?null:r }},
   { id:'i', label:'i. Penguatan Budaya & Bintal', formula:'Realisasi langsung (%)', targets:{Q1:100,Q2:100,Q3:100,Q4:100}, bySeksi:false,
@@ -77,8 +84,7 @@ export default function Dashboard({ q, admin }) {
         if (kpi.bySeksi) {
           res[kpi.id][qr] = {}
           SEKSI.forEach(s => { res[kpi.id][qr][s] = kpi.calc(vals, qr, s) })
-          const valids = SEKSI.map(s => res[kpi.id][qr][s]).filter(v => v!==null)
-          res[kpi.id][qr]['_avg'] = valids.length>0 ? valids.reduce((a,b)=>a+b,0)/valids.length : null
+          res[kpi.id][qr]['_avg'] = kpi.calcBidang(vals, qr)
         } else {
           res[kpi.id][qr] = kpi.calc(vals, qr)
         }
